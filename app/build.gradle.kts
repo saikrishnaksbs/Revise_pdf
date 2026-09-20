@@ -11,16 +11,10 @@ android {
 
     defaultConfig {
         applicationId = "com.revisepdf.app"
-        // llama-android publishes arm64-v8a/x86_64 only and requires API 28.
-        minSdk = 28
+        minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.2.1"
-
-        ndk {
-            // Phones are all arm64; dropping x86_64 halves the native payload.
-            abiFilters += "arm64-v8a"
-        }
+        versionCode = 4
+        versionName = "0.2.2"
     }
 
     buildTypes {
@@ -51,6 +45,11 @@ android {
         }
         create("full") {
             dimension = "ai"
+            // llama-android needs API 28 and publishes arm64-v8a/x86_64 only. Keeping this on the
+            // full flavour matters for size as well as reach: at minSdk 28 AGP stores dex and
+            // native libs uncompressed, which nearly tripled the lite APK when it was shared.
+            minSdk = 28
+            ndk { abiFilters += "arm64-v8a" }
             buildConfigField("boolean", "AI_ENABLED", "true")
         }
     }
@@ -69,6 +68,9 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // PdfBox pulls in the whole BouncyCastle provider. It uses it for PDF encryption
+            // (RC4/AES/RSA) and never for post-quantum schemes, whose lookup tables are 8MB.
+            excludes += "org/bouncycastle/pqc/**"
         }
     }
 }
