@@ -14,8 +14,8 @@ android {
         // llama-android publishes arm64-v8a/x86_64 only and requires API 28.
         minSdk = 28
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.2.1"
 
         ndk {
             // Phones are all arm64; dropping x86_64 halves the native payload.

@@ -3,6 +3,11 @@ package com.revisepdf.app.ui.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,7 +21,7 @@ import com.revisepdf.app.ui.settings.SettingsScreen
 
 private const val ROUTE_LIBRARY = "library"
 private const val ROUTE_SETTINGS = "settings"
-private const val ROUTE_IMPORT = "import/{uri}/{name}"
+private const val ROUTE_IMPORT = "import"
 private const val ROUTE_REVISION = "revision/{documentId}"
 
 @Composable
@@ -26,6 +31,12 @@ fun RevisePdfNavHost(
     onPendingRevisionConsumed: () -> Unit,
 ) {
     val navController = rememberNavController()
+
+    // A content:// URI cannot travel as a route path argument: Uri.encode turns its slashes into
+    // %2F, Navigation decodes them again while matching, and the extra segments stop the route
+    // from ever matching — the app just sits on the library screen. It is held as state instead.
+    var pickedUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var pickedName by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(pendingRevisionDocumentId) {
         if (pendingRevisionDocumentId != null) {
@@ -40,30 +51,25 @@ fun RevisePdfNavHost(
                 container = container,
                 onOpenDocument = { documentId -> navController.navigate("revision/$documentId") },
                 onNewPdfPicked = { uri, name ->
-                    navController.navigate("import/${Uri.encode(uri.toString())}/${Uri.encode(name)}")
+                    pickedUri = uri.toString()
+                    pickedName = name
+                    navController.navigate(ROUTE_IMPORT)
                 },
                 onOpenSettings = { navController.navigate(ROUTE_SETTINGS) },
             )
         }
-        composable(
-            route = ROUTE_IMPORT,
-            arguments = listOf(
-                navArgument("uri") { type = NavType.StringType },
-                navArgument("name") { type = NavType.StringType },
-            ),
-        ) { backStackEntry ->
-            val uriArg = backStackEntry.arguments?.getString("uri").orEmpty()
-            val nameArg = backStackEntry.arguments?.getString("name").orEmpty()
+        composable(ROUTE_IMPORT) {
+            val uri = pickedUri
             ImportScreen(
                 container = container,
-                uri = Uri.parse(Uri.decode(uriArg)),
-                displayName = Uri.decode(nameArg),
+                uri = remember(uri) { uri?.let(Uri::parse) },
+                displayName = pickedName ?: "Selected PDF",
                 onDone = { documentId ->
                     navController.navigate("revision/$documentId") {
                         popUpTo(ROUTE_LIBRARY)
                     }
                 },
-                onFailed = { navController.popBackStack() },
+                onBack = { navController.popBackStack() },
             )
         }
         composable(

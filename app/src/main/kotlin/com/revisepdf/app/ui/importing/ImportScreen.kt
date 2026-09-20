@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.revisepdf.app.AppContainer
@@ -26,16 +28,16 @@ import com.revisepdf.app.ui.ViewModelFactory
 @Composable
 fun ImportScreen(
     container: AppContainer,
-    uri: Uri,
+    uri: Uri?,
     displayName: String,
     onDone: (String) -> Unit,
-    onFailed: () -> Unit,
+    onBack: () -> Unit,
     viewModel: ImportViewModel = viewModel(factory = remember { ViewModelFactory(container) }),
 ) {
     val state by viewModel.state.collectAsState()
 
     LaunchedEffect(uri) {
-        viewModel.importPdf(uri, displayName)
+        if (uri != null) viewModel.importPdf(uri, displayName)
     }
 
     LaunchedEffect(state) {
@@ -49,15 +51,22 @@ fun ImportScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(32.dp),
         ) {
-            Text(displayName, style = MaterialTheme.typography.titleMedium)
+            Text(displayName, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+
+            if (uri == null) {
+                Text("No PDF was selected.", textAlign = TextAlign.Center)
+                Button(onClick = onBack) { Text("Back") }
+                return@Column
+            }
+
             when (val current = state) {
-                is ImportUiState.Idle, ImportUiState.Hashing -> {
+                ImportUiState.Idle, ImportUiState.Hashing -> {
                     CircularProgressIndicator()
-                    Text("Checking whether this PDF was already processed…")
+                    Text("Checking whether this PDF was already processed…", textAlign = TextAlign.Center)
                 }
-                is ImportUiState.AlreadyProcessed -> {
+                ImportUiState.AlreadyProcessed -> {
                     CircularProgressIndicator()
-                    Text("Already processed before — loading from local storage…")
+                    Text("Already processed before — loading from local storage…", textAlign = TextAlign.Center)
                 }
                 is ImportUiState.Processing -> {
                     val progress = if (current.totalPages > 0) {
@@ -73,8 +82,15 @@ fun ImportScreen(
                     Text("Done — opening revision…")
                 }
                 is ImportUiState.Failed -> {
-                    Text("Couldn't process this PDF: ${current.message}", color = MaterialTheme.colorScheme.error)
-                    LaunchedEffect(current) { onFailed() }
+                    // Never bounce silently back to the library: an invisible failure is
+                    // indistinguishable from the app doing nothing at all.
+                    Text(
+                        "Couldn't process this PDF",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Text(current.message, textAlign = TextAlign.Center)
+                    Button(onClick = onBack) { Text("Back") }
                 }
             }
         }
