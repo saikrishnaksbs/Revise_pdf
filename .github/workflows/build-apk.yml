@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -48,3 +50,21 @@ jobs:
           name: revise-pdf-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      # Keeps one rolling "latest" release so the APK always has the same download URL:
+      # https://github.com/saikrishnaksbs/Revise_pdf/releases/latest/download/revise-pdf-debug.apk
+      - name: Publish APK to the latest release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk revise-pdf-debug.apk
+          notes="Debug APK built from ${GITHUB_SHA}. Download revise-pdf-debug.apk below and open it on your phone to install."
+          if gh release view latest >/dev/null 2>&1; then
+            gh release upload latest revise-pdf-debug.apk --clobber
+            gh release edit latest --notes "$notes"
+          else
+            gh release create latest revise-pdf-debug.apk \
+              --title "Revise PDF — latest debug build" \
+              --notes "$notes"
+          fi
