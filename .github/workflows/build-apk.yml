@@ -41,6 +41,19 @@ jobs:
       - name: Run core unit tests
         run: ./gradlew :core:test --stacktrace
 
+      - name: Run app unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            core/build/reports/tests/
+            app/build/reports/tests/
+          if-no-files-found: ignore
+
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
 
