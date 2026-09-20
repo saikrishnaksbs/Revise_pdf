@@ -2,9 +2,12 @@ package com.revisepdf.app
 
 import android.content.Context
 import com.revisepdf.app.data.db.AppDatabase
+import com.revisepdf.app.data.llm.LlamaEngine
+import com.revisepdf.app.data.llm.ModelRepository
 import com.revisepdf.app.data.pdf.PdfProcessor
 import com.revisepdf.app.data.prefs.SettingsRepository
 import com.revisepdf.app.data.repository.LibraryRepository
+import com.revisepdf.app.data.repository.QuestionGenerationRepository
 import com.revisepdf.app.data.repository.RevisionRepository
 import com.revisepdf.app.notification.NotificationHelper
 import com.revisepdf.app.notification.ReminderScheduler
@@ -22,5 +25,11 @@ class AppContainer(context: Context) {
     val reminderScheduler: ReminderScheduler by lazy { ReminderScheduler(appContext) }
     val sessionController: RevisionSessionController by lazy {
         RevisionSessionController(settingsRepository, reminderScheduler)
+    }
+
+    val modelRepository: ModelRepository by lazy { ModelRepository(appContext, settingsRepository) }
+    private val llamaEngine: LlamaEngine by lazy { LlamaEngine() }
+    val questionGenerationRepository: QuestionGenerationRepository by lazy {
+        QuestionGenerationRepository(database, modelRepository, llamaEngine)
     }
 }

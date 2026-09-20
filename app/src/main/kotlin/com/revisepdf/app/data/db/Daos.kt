@@ -44,6 +44,23 @@ interface RecallPointDao {
 
     @Query("SELECT COUNT(*) FROM recall_points WHERE documentId = :documentId")
     suspend fun countForDocument(documentId: String): Int
+
+    @Query(
+        """
+        SELECT rp.id AS recallPointId, rp.pageIndex AS pageIndex, p.text AS paragraphText
+        FROM recall_points rp
+        JOIN paragraphs p ON p.id = rp.paragraphId
+        WHERE rp.documentId = :documentId AND rp.type = :type AND LENGTH(p.text) >= :minLength
+        ORDER BY rp.pageIndex ASC
+        """,
+    )
+    suspend fun getByType(documentId: String, type: String, minLength: Int): List<ParagraphRecallPoint>
+
+    @Query("UPDATE recall_points SET prompt = :prompt, answer = :answer, type = :type WHERE id = :id")
+    suspend fun updateGenerated(id: String, prompt: String, answer: String, type: String)
+
+    @Query("SELECT COUNT(*) FROM recall_points WHERE documentId = :documentId AND type = :type")
+    fun observeCountByType(documentId: String, type: String): Flow<Int>
 }
 
 @Dao
@@ -60,10 +77,12 @@ interface RevisionDao {
     @Query(
         """
         SELECT rp.id AS id, rp.documentId AS documentId, rp.pageIndex AS pageIndex,
-               rp.prompt AS prompt, rp.answer AS answer,
+               rp.prompt AS prompt, rp.answer AS answer, rp.type AS type,
+               p.text AS sourceText,
                rs.level AS level, rs.dueAtEpochMillis AS dueAtEpochMillis, rs.timesReviewed AS timesReviewed
         FROM recall_points rp
         JOIN review_states rs ON rs.recallPointId = rp.id
+        JOIN paragraphs p ON p.id = rp.paragraphId
         WHERE rp.documentId = :documentId AND rs.dueAtEpochMillis <= :nowEpochMillis
         ORDER BY rs.dueAtEpochMillis ASC
         LIMIT :limit

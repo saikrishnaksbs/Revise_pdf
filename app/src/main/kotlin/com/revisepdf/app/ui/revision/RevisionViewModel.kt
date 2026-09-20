@@ -3,12 +3,17 @@ package com.revisepdf.app.ui.revision
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.revisepdf.app.data.db.RecallPointWithState
+import com.revisepdf.app.data.llm.ModelRepository
+import com.revisepdf.app.data.llm.ModelStatus
 import com.revisepdf.app.data.prefs.SettingsRepository
+import com.revisepdf.app.data.repository.GenerationProgress
+import com.revisepdf.app.data.repository.QuestionGenerationRepository
 import com.revisepdf.app.data.repository.RevisionRepository
 import com.revisepdf.app.session.RevisionSessionController
 import com.revisepdf.core.model.ReviewOutcome
 import com.revisepdf.core.model.RevisionProgress
 import com.revisepdf.core.model.SessionState
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +27,8 @@ data class RevisionUiState(
     val progress: RevisionProgress = RevisionProgress(null, 0, 0, 0),
     val sessionState: SessionState = SessionState.STOPPED,
     val isLoading: Boolean = true,
+    val modelStatus: ModelStatus = ModelStatus(),
+    val generation: GenerationProgress? = null,
 ) {
     val current: RecallPointWithState? get() = queue.getOrNull(currentIndex)
     val isQueueExhausted: Boolean get() = !isLoading && queue.isNotEmpty() && current == null
@@ -34,10 +41,13 @@ class RevisionViewModel(
     private val revisionRepository: RevisionRepository,
     private val sessionController: RevisionSessionController,
     settingsRepository: SettingsRepository,
+    private val questionGenerationRepository: QuestionGenerationRepository,
+    modelRepository: ModelRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RevisionUiState())
     val uiState: StateFlow<RevisionUiState> = _uiState.asStateFlow()
+    private var generationJob: Job? = null
 
     init {
         viewModelScope.launch { loadQueue() }
@@ -51,6 +61,31 @@ class RevisionViewModel(
                 _uiState.update { it.copy(sessionState = state) }
             }
         }
+        viewModelScope.launch {
+            modelRepository.status.collect { status ->
+                _uiState.update { it.copy(modelStatus = status) }
+            }
+        }
+    }
+
+    fun generateQuestions() {
+        if (generationJob?.isActive == true) return
+        generationJob = viewModelScope.launch {
+            questionGenerationRepository.generateForDocument(documentId).collect { progress ->
+                _uiState.update { it.copy(generation = progress) }
+            }
+            loadQueue()
+        }
+    }
+
+    fun cancelGeneration() {
+        generationJob?.cancel()
+        generationJob = null
+        _uiState.update { it.copy(generation = null) }
+    }
+
+    fun dismissGenerationResult() {
+        _uiState.update { it.copy(generation = null) }
     }
 
     private suspend fun loadQueue() {

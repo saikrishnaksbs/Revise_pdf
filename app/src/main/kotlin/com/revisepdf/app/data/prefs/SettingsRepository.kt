@@ -18,6 +18,10 @@ class SettingsRepository(private val context: Context) {
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val SESSION_STATE = stringPreferencesKey("session_state")
         val ACTIVE_DOCUMENT_ID = stringPreferencesKey("active_document_id")
+        val MODEL_PATH = stringPreferencesKey("model_path")
+        val MODEL_NAME = stringPreferencesKey("model_name")
+        val MMPROJ_PATH = stringPreferencesKey("mmproj_path")
+        val MMPROJ_NAME = stringPreferencesKey("mmproj_name")
     }
 
     val notificationIntervalMinutes: Flow<Int> = context.dataStore.data.map {
@@ -35,6 +39,11 @@ class SettingsRepository(private val context: Context) {
 
     val activeDocumentId: Flow<String?> = context.dataStore.data.map { it[Keys.ACTIVE_DOCUMENT_ID] }
 
+    val modelPath: Flow<String?> = context.dataStore.data.map { it[Keys.MODEL_PATH] }
+    val modelName: Flow<String?> = context.dataStore.data.map { it[Keys.MODEL_NAME] }
+    val mmprojPath: Flow<String?> = context.dataStore.data.map { it[Keys.MMPROJ_PATH] }
+    val mmprojName: Flow<String?> = context.dataStore.data.map { it[Keys.MMPROJ_NAME] }
+
     suspend fun setNotificationIntervalMinutes(minutes: Int) {
         context.dataStore.edit { it[Keys.NOTIFICATION_INTERVAL_MINUTES] = minutes }
     }
@@ -50,6 +59,29 @@ class SettingsRepository(private val context: Context) {
     suspend fun setActiveDocumentId(documentId: String?) {
         context.dataStore.edit {
             if (documentId == null) it.remove(Keys.ACTIVE_DOCUMENT_ID) else it[Keys.ACTIVE_DOCUMENT_ID] = documentId
+        }
+    }
+
+    suspend fun setModel(path: String, name: String) {
+        context.dataStore.edit {
+            it[Keys.MODEL_PATH] = path
+            it[Keys.MODEL_NAME] = name
+        }
+    }
+
+    suspend fun setMmproj(path: String, name: String) {
+        context.dataStore.edit {
+            it[Keys.MMPROJ_PATH] = path
+            it[Keys.MMPROJ_NAME] = name
+        }
+    }
+
+    suspend fun clearModel() {
+        context.dataStore.edit {
+            it.remove(Keys.MODEL_PATH)
+            it.remove(Keys.MODEL_NAME)
+            it.remove(Keys.MMPROJ_PATH)
+            it.remove(Keys.MMPROJ_NAME)
         }
     }
 

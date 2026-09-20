@@ -39,7 +39,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.revisepdf.app.AppContainer
+import com.revisepdf.app.data.llm.ModelStatus
+import com.revisepdf.app.data.repository.GenerationProgress
 import com.revisepdf.app.ui.ViewModelFactory
+import com.revisepdf.core.model.RecallType
 import com.revisepdf.core.model.ReviewOutcome
 import com.revisepdf.core.model.SessionState
 
@@ -82,6 +85,13 @@ fun RevisionScreen(
                 onResume = viewModel::resume,
                 onStop = viewModel::stop,
             )
+            GenerationSection(
+                modelStatus = state.modelStatus,
+                generation = state.generation,
+                onGenerate = viewModel::generateQuestions,
+                onCancel = viewModel::cancelGeneration,
+                onDismiss = viewModel::dismissGenerationResult,
+            )
             val current = state.current
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 when {
@@ -89,6 +99,7 @@ fun RevisionScreen(
                     current != null -> RecallCard(
                         prompt = current.prompt,
                         answer = current.answer,
+                        sourceText = current.sourceText.takeIf { current.type == RecallType.QUESTION.name },
                         isAnswerRevealed = state.isAnswerRevealed,
                         onReveal = viewModel::reveal,
                         onOutcome = viewModel::markOutcome,
@@ -157,9 +168,55 @@ private fun SessionControls(
 }
 
 @Composable
+private fun GenerationSection(
+    modelStatus: ModelStatus,
+    generation: GenerationProgress?,
+    onGenerate: () -> Unit,
+    onCancel: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    when (generation) {
+        is GenerationProgress.LoadingModel -> Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Loading the model into memory… this takes a few seconds.")
+                TextButton(onClick = onCancel) { Text("Cancel") }
+            }
+        }
+        is GenerationProgress.Working -> Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (generation.total > 0) {
+                    LinearProgressIndicator(
+                        progress = { generation.done.toFloat() / generation.total },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Text("Writing questions: ${generation.done} of ${generation.total}")
+                TextButton(onClick = onCancel) { Text("Stop") }
+            }
+        }
+        is GenerationProgress.Finished -> Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Wrote ${generation.generated} questions. Skipped ${generation.skipped}.")
+                TextButton(onClick = onDismiss) { Text("OK") }
+            }
+        }
+        is GenerationProgress.Failed -> Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(generation.message, color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = onDismiss) { Text("OK") }
+            }
+        }
+        null -> if (modelStatus.isReady) {
+            OutlinedButton(onClick = onGenerate) { Text("Generate AI questions") }
+        }
+    }
+}
+
+@Composable
 private fun RecallCard(
     prompt: String,
     answer: String,
+    sourceText: String?,
     isAnswerRevealed: Boolean,
     onReveal: () -> Unit,
     onOutcome: (ReviewOutcome) -> Unit,
@@ -173,6 +230,13 @@ private fun RecallCard(
             if (isAnswerRevealed) {
                 HorizontalDivider()
                 Text(answer, style = MaterialTheme.typography.bodyLarge)
+                if (sourceText != null) {
+                    Text(
+                        sourceText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { onOutcome(ReviewOutcome.FORGOT) }) { Text("Forgot") }
                     Button(onClick = { onOutcome(ReviewOutcome.REMEMBERED) }) { Text("Remembered") }

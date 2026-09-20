@@ -87,7 +87,15 @@ data class RecallPointWithState(
     val pageIndex: Int,
     val prompt: String,
     val answer: String,
+    val sourceText: String,
+    val type: String,
     val level: Int,
     val dueAtEpochMillis: Long,
     val timesReviewed: Int,
+)
+
+data class ParagraphRecallPoint(
+    val recallPointId: String,
+    val pageIndex: Int,
+    val paragraphText: String,
 )

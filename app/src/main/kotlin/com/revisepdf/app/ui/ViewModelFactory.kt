@@ -22,8 +22,13 @@ class ViewModelFactory(
             revisionRepository = container.revisionRepository,
             sessionController = container.sessionController,
             settingsRepository = container.settingsRepository,
+            questionGenerationRepository = container.questionGenerationRepository,
+            modelRepository = container.modelRepository,
         ) as T
-        SettingsViewModel::class.java -> SettingsViewModel(container.settingsRepository) as T
+        SettingsViewModel::class.java -> SettingsViewModel(
+            container.settingsRepository,
+            container.modelRepository,
+        ) as T
         else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

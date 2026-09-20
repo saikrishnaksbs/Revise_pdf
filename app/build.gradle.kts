@@ -11,10 +11,16 @@ android {
 
     defaultConfig {
         applicationId = "com.revisepdf.app"
-        minSdk = 26
+        // llama-android publishes arm64-v8a/x86_64 only and requires API 28.
+        minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
+
+        ndk {
+            // Phones are all arm64; dropping x86_64 halves the native payload.
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
@@ -69,6 +75,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.pdfbox.android)
+
+    implementation(libs.llama.android)
+    implementation(libs.llama.kotlin)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
