@@ -22,13 +22,47 @@ built for daily use on a phone (developed with an iQOO Neo 9 Pro in mind).
 
 Everything runs fully offline — the app requests no `INTERNET` permission.
 
-## Planned (V2)
+## V2: on-device AI questions (Qwen-VL)
 
-`RecallPointGenerator` (in `core`) is the seam for this: a second implementation backed
-by a local Qwen-VL model (via an on-device inference runtime) can turn paragraphs,
-tables, diagrams, and images into real questions instead of plain "recall this
-paragraph" prompts, without changing the data model, the database schema, or any UI
-code — it's a drop-in generator.
+Instead of "recall this paragraph", the app can generate a real question and answer for
+each paragraph using a vision-language model running **entirely on the phone**. There is
+still no `INTERNET` permission — you supply the model as a file.
+
+It runs two passes over a document:
+
+- **Text pass** — every paragraph long enough to be worth it becomes a generated
+  question. The existing recall point is updated **in place**, so review history and
+  progress are preserved rather than reset.
+- **Vision pass** — pages that produced *no* text at all (scans, full-page figures,
+  diagram/table pages) are rendered to images and sent to the model as images. This is
+  where the "VL" earns its place, and it's also the only thing that makes scanned PDFs
+  usable at all.
+
+If the model's output can't be parsed into a clean question/answer, that paragraph
+silently keeps its plain "recall this paragraph" point rather than storing garbage.
+
+### Loading a model
+
+1. On a computer, download two files from a Qwen2.5-VL GGUF repository on Hugging Face
+   (for example `Mungert/Qwen2.5-VL-3B-Instruct-GGUF`):
+   - the **model**, a `Q4` quantization (`q4_k_m` or `q4_0`) — roughly 2 GB for the 3B model
+   - the matching **`mmproj-*.gguf`** from the same repo — this is the vision projector,
+     and without it you get text-only generation
+   Exact filenames vary by uploader; you're looking for one `*q4*.gguf` and one
+   `mmproj-*.gguf` **from the same repository** — mixing repos will not work.
+2. Copy both onto the phone.
+3. In the app: **Settings → On-device AI questions → Pick model**, then **Pick mmproj**.
+   Each file is copied into the app's private storage, so make sure you have the free
+   space (and you can delete the originals afterwards).
+4. Open a document and tap **Generate AI questions**.
+
+Notes on sizing: the 3B model at Q4 is the sensible choice for a phone. `mmproj` files
+are currently only published in f16/f32, so the projector is large relative to the
+quantized model. Generation is slow — seconds per paragraph on CPU — so it's a
+"start it and leave it" operation, and it's cancellable and resumable (already-generated
+paragraphs are skipped on a re-run).
+
+The 7B variants exist but will be slow and memory-hungry on a phone; try 3B first.
 
 ## Architecture
 

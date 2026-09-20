@@ -35,6 +35,9 @@ interface ParagraphDao {
 
     @Query("SELECT * FROM paragraphs WHERE documentId = :documentId ORDER BY pageIndex ASC, orderInPage ASC")
     suspend fun getByDocument(documentId: String): List<ParagraphEntity>
+
+    @Query("SELECT DISTINCT pageIndex FROM paragraphs WHERE documentId = :documentId")
+    suspend fun getPagesWithParagraphs(documentId: String): List<Int>
 }
 
 @Dao

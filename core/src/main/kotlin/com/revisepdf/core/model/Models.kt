@@ -17,7 +17,7 @@ data class Paragraph(
     val text: String,
 )
 
-enum class RecallType { PARAGRAPH_RECALL, CLOZE, QUESTION }
+enum class RecallType { PARAGRAPH_RECALL, CLOZE, QUESTION, IMAGE_QUESTION }
 
 data class RecallPoint(
     val id: String,

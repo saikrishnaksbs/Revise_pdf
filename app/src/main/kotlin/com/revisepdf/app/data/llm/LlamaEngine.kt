@@ -5,7 +5,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import net.ladenthin.llama.LlamaModel
-import net.ladenthin.llama.kotlin.generateChatFlow
 import net.ladenthin.llama.parameters.InferenceParameters
 import net.ladenthin.llama.parameters.ModelParameters
 import net.ladenthin.llama.value.ChatMessage
@@ -66,11 +65,7 @@ class LlamaEngine {
                 .withRepeatPenalty(REPEAT_PENALTY)
                 .withRepeatLastN(REPEAT_LAST_N)
 
-            val reply = StringBuilder()
-            withContext(Dispatchers.IO) {
-                active.generateChatFlow(parameters).collect { output -> reply.append(output.text) }
-            }
-            reply.toString()
+            withContext(Dispatchers.IO) { active.chatCompleteText(parameters) }
         }
 
     suspend fun close() = mutex.withLock {

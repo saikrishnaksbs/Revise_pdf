@@ -76,8 +76,10 @@ dependencies {
 
     implementation(libs.pdfbox.android)
 
+    // The llama-kotlin coroutines facade is deliberately not used: it ships Kotlin 2.4 metadata,
+    // which this project's Kotlin 2.0 compiler cannot read. The Java API returns the whole reply
+    // anyway, which is all this app needs.
     implementation(libs.llama.android)
-    implementation(libs.llama.kotlin)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)

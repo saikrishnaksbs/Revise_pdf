@@ -4,6 +4,7 @@ import android.content.Context
 import com.revisepdf.app.data.db.AppDatabase
 import com.revisepdf.app.data.llm.LlamaEngine
 import com.revisepdf.app.data.llm.ModelRepository
+import com.revisepdf.app.data.pdf.PageRenderer
 import com.revisepdf.app.data.pdf.PdfProcessor
 import com.revisepdf.app.data.prefs.SettingsRepository
 import com.revisepdf.app.data.repository.LibraryRepository
@@ -29,7 +30,8 @@ class AppContainer(context: Context) {
 
     val modelRepository: ModelRepository by lazy { ModelRepository(appContext, settingsRepository) }
     private val llamaEngine: LlamaEngine by lazy { LlamaEngine() }
+    private val pageRenderer: PageRenderer by lazy { PageRenderer() }
     val questionGenerationRepository: QuestionGenerationRepository by lazy {
-        QuestionGenerationRepository(database, modelRepository, llamaEngine)
+        QuestionGenerationRepository(appContext, database, modelRepository, llamaEngine, pageRenderer)
     }
 }
