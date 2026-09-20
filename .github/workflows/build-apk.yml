@@ -42,7 +42,7 @@ jobs:
         run: ./gradlew :core:test --stacktrace
 
       - name: Run app unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testLiteDebugUnitTest --stacktrace
 
       - name: Upload test reports
         if: failure()
@@ -54,14 +54,14 @@ jobs:
             app/build/reports/tests/
           if-no-files-found: ignore
 
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Build debug APKs
+        run: ./gradlew :app:assembleLiteDebug :app:assembleFullDebug --stacktrace
 
-      - name: Upload debug APK
+      - name: Upload debug APKs
         uses: actions/upload-artifact@v4
         with:
-          name: revise-pdf-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: revise-pdf-debug-apks
+          path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
 
       # Keeps one rolling "latest" release so the APK always has the same download URL:
@@ -71,13 +71,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk revise-pdf-debug.apk
-          notes="Debug APK built from ${GITHUB_SHA}. Download revise-pdf-debug.apk below and open it on your phone to install."
+          cp app/build/outputs/apk/lite/debug/app-lite-debug.apk revise-pdf-lite.apk
+          cp app/build/outputs/apk/full/debug/app-full-debug.apk revise-pdf-full.apk
+          notes="Built from ${GITHUB_SHA}."$'\n\n'
+          notes+="- **revise-pdf-lite.apk** - the PDF revision app. Small download, no on-device AI."$'\n'
+          notes+="- **revise-pdf-full.apk** - same app plus the Qwen-VL question generator. Much larger, and needs a GGUF model you supply yourself."$'\n\n'
+          notes+="Install only one: they share an application id, so the second replaces the first."
           if gh release view latest >/dev/null 2>&1; then
-            gh release upload latest revise-pdf-debug.apk --clobber
+            gh release upload latest revise-pdf-lite.apk revise-pdf-full.apk --clobber
             gh release edit latest --notes "$notes"
           else
-            gh release create latest revise-pdf-debug.apk \
+            gh release create latest revise-pdf-lite.apk revise-pdf-full.apk \
               --title "Revise PDF — latest debug build" \
               --notes "$notes"
           fi

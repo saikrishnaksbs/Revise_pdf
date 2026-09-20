@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.revisepdf.app.AppContainer
+import com.revisepdf.app.BuildConfig
 import com.revisepdf.app.data.llm.ModelKind
 import com.revisepdf.app.data.llm.ModelStatus
 import com.revisepdf.app.ui.ViewModelFactory
@@ -113,14 +114,16 @@ fun SettingsScreen(
                     Text(formatInterval(minutes))
                 }
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            AiModelSection(
-                status = state.modelStatus,
-                importState = importState,
-                onPickModel = { pickModel.launch(arrayOf("*/*")) },
-                onPickMmproj = { pickMmproj.launch(arrayOf("*/*")) },
-                onClear = viewModel::clearModel,
-            )
+            if (BuildConfig.AI_ENABLED) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                AiModelSection(
+                    status = state.modelStatus,
+                    importState = importState,
+                    onPickModel = { pickModel.launch(arrayOf("*/*")) },
+                    onPickMmproj = { pickMmproj.launch(arrayOf("*/*")) },
+                    onClear = viewModel::clearModel,
+                )
+            }
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             Text(
                 "On some phones (including iQOO/vivo devices), reminders may be delayed unless " +

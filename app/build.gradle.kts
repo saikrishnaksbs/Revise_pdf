@@ -39,8 +39,25 @@ android {
         jvmTarget = "17"
     }
 
+    // The llama.cpp engine is ~70MB of native library and bindings, and it is useless without a
+    // multi-GB GGUF model the user supplies separately. The lite flavour leaves it out entirely so
+    // the PDF revision app stays a small, easy-to-sideload download.
+    flavorDimensions += "ai"
+    productFlavors {
+        create("lite") {
+            dimension = "ai"
+            versionNameSuffix = "-lite"
+            buildConfigField("boolean", "AI_ENABLED", "false")
+        }
+        create("full") {
+            dimension = "ai"
+            buildConfigField("boolean", "AI_ENABLED", "true")
+        }
+    }
+
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -85,7 +102,7 @@ dependencies {
     // The llama-kotlin coroutines facade is deliberately not used: it ships Kotlin 2.4 metadata,
     // which this project's Kotlin 2.0 compiler cannot read. The Java API returns the whole reply
     // anyway, which is all this app needs.
-    implementation(libs.llama.android)
+    "fullImplementation"(libs.llama.android)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
