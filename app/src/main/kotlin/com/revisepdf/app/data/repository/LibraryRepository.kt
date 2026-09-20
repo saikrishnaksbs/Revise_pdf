@@ -19,9 +19,10 @@ import com.revisepdf.core.text.ParagraphSplitter
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
@@ -44,31 +45,40 @@ class LibraryRepository(
     fun observeLibrary(): Flow<List<DocumentRecord>> =
         db.documentDao().observeAll().map { list -> list.map { it.toDomain() } }
 
-    fun importFromUri(uri: Uri, displayName: String): Flow<ImportProgress> = callbackFlow {
-        trySend(ImportProgress.Hashing)
+    // channelFlow with suspending send(), not callbackFlow with trySend(): on the default
+    // rendezvous channel trySend drops the element whenever the collector is not already parked
+    // on receive, so terminal events like Done could be lost and the import would appear to hang.
+    fun importFromUri(uri: Uri, displayName: String): Flow<ImportProgress> = channelFlow {
+        send(ImportProgress.Hashing)
 
-        val bytes = runCatching {
-            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-        }.getOrNull()
-
-        if (bytes == null) {
-            trySend(ImportProgress.Failed("Could not read the selected PDF."))
-            close()
-            return@callbackFlow
+        val staging = File(pdfDir, "staging-${UUID.randomUUID()}.tmp")
+        val hash = try {
+            context.contentResolver.openInputStream(uri).use { input ->
+                if (input == null) null else staging.outputStream().use { ContentHash.copyAndHash(input, it) }
+            }
+        } catch (e: Exception) {
+            staging.delete()
+            send(ImportProgress.Failed(e.message ?: "Could not read the selected PDF."))
+            return@channelFlow
         }
 
-        val hash = ContentHash.sha256(bytes)
+        if (hash == null) {
+            staging.delete()
+            send(ImportProgress.Failed("Could not open the selected PDF."))
+            return@channelFlow
+        }
+
         val existing = db.documentDao().findByContentHash(hash)
         if (existing != null && existing.isFullyProcessed) {
-            trySend(ImportProgress.AlreadyProcessed)
-            trySend(ImportProgress.Done(existing.id))
-            close()
-            return@callbackFlow
+            staging.delete()
+            send(ImportProgress.AlreadyProcessed)
+            send(ImportProgress.Done(existing.id))
+            return@channelFlow
         }
 
         val documentId = existing?.id ?: UUID.randomUUID().toString()
         val file = File(pdfDir, "$hash.pdf")
-        if (!file.exists()) file.writeBytes(bytes)
+        if (file.exists()) staging.delete() else staging.renameTo(file)
 
         try {
             val pageTexts = pdfProcessor.extractPages(file) { progress ->
@@ -113,11 +123,9 @@ class LibraryRepository(
             db.revisionDao().insertReviewStates(reviewEntities)
             db.documentDao().setFullyProcessed(documentId, true)
 
-            trySend(ImportProgress.Done(documentId))
+            send(ImportProgress.Done(documentId))
         } catch (e: Exception) {
-            trySend(ImportProgress.Failed(e.message ?: "Failed to process the PDF."))
+            send(ImportProgress.Failed(e.message ?: "Failed to process the PDF."))
         }
-        close()
-        awaitClose { }
-    }.flowOn(Dispatchers.IO)
+    }.buffer(Channel.UNLIMITED).flowOn(Dispatchers.IO)
 }
